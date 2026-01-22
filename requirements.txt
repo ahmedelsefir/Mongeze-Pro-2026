@@ -29,7 +29,7 @@ dnspython==2.7.0
 docstring_parser==0.16
 executing==2.2.0
 fastapi==0.128.0
-filelock==3.18.0
+filelock==3.20.3
 flake8==3.8.4
 Flask==3.1.1
 Flask-PyMongo==3.0.1

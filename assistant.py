@@ -1,13 +1,22 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 1. التأسيس الآلي للنظام [cite: 2026-01-13]
+# 1. التأسيس الآلي للنظام
 st.set_page_config(page_title="منظومة مُنجز الذكية", layout="wide", page_icon="🚀")
 
-# الربط التلقائي بمفتاح API من Secrets لضمان رضا العميل [cite: 2026-01-18]
+# 🔍 جلب المفتاح الذكي من أي مسار داخل Secrets
+api_key = None
+
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+elif "google" in st.secrets and "api_key" in st.secrets["google"]:
+    api_key = st.secrets["google"]["api_key"]
+elif "github" in st.secrets and "GEMINI_API_KEY" in st.secrets["github"]:
+    api_key = st.secrets["github"]["GEMINI_API_KEY"]
+
 try:
-    if "GOOGLE_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    if api_key:
+        genai.configure(api_key=api_key)
     else:
         st.error("⚠️ مفتاح الاتصال غير موجود في Secrets!")
 except Exception as e:
@@ -27,7 +36,6 @@ if not st.session_state['logged_in']:
         pw = st.text_input("كلمة المرور", type='password')
     
     if st.button("دخول للنظام"):
-        # المفتاح الموحد للدخول
         if user == "ahmedelsefir" and pw == "123":
             st.session_state['logged_in'] = True
             st.success("تم الاتصال بنجاح.. جاري التحميل")
@@ -35,21 +43,22 @@ if not st.session_state['logged_in']:
         else:
             st.error("بيانات الدخول غير صحيحة")
 else:
-    # 4. لوحة التحكم المرنة (سهولة إضافة أي برنامج) [cite: 2026-01-13]
+    # 4. لوحة التحكم المرنة
     st.sidebar.title("🎮 لوحة التحكم")
-    # لإضافة برنامج جديد، فقط أضف اسمه في القائمة أدناه
     menu = ["🤖 المساعد الذكي", "📊 المحاسب الذكي", "⚙️ الإعدادات"]
     choice = st.sidebar.selectbox("اختر البرنامج المطلوب:", menu)
 
-    # --- موديول المساعد الذكي (Gemini 1.5 Flash - الأكثر استقراراً) ---
+    # --- موديول المساعد الذكي ---
     if choice == "🤖 المساعد الذكي":
         st.header("🤖 عقل مُنجز (Gemini V9)")
         st.info("المساعد جاهز للعمل بـ دقة متناهية.")
         
         prompt = st.chat_input("تحدث مع مُنجز...")
         if prompt:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+                
             try:
-                # استخدام الموديل الأحدث لتجنب أخطاء NotFound
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt)
                 with st.chat_message("assistant"):
@@ -57,7 +66,7 @@ else:
             except Exception as e:
                 st.error(f"حدث خطأ في الاتصال بالذكاء الاصطناعي: {e}")
 
-    # --- موديول المحاسب الذكي (قيد التأسيس) ---
+    # --- موديول المحاسب الذكي ---
     elif choice == "📊 المحاسب الذكي":
         st.header("📊 المحاسب الذكي")
         st.write("سيتم تفعيل معادلات (1.14) و (0.90) هنا بكل دقة.")

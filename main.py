@@ -22,7 +22,7 @@ def check_hashes(password, hashed_text):
 try:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     system_prompt = "أنت 'مُنجز' شريك الأعمال التقني. تخصصك: المحاسبة الدقيقة وجلب العملاء عبر SEO."
 except Exception as e:
     st.error(f"⚠️ خطأ تقني: {e}")
@@ -55,10 +55,10 @@ if not st.session_state['logged_in']:
 # 4. تفعيل محركات العمل (الأدوات الأربعة) [cite: 2026-01-13]
 if st.session_state['logged_in']:
     st.sidebar.success(f"مرحباً بك: {st.session_state['user']}")
-    app_choice = st.sidebar.radio("قائمة التحكم", 
-                                 ["المساعد الذكي (الوعي الشامل)", 
-                                  "برنامج المحاسب المعتمد", 
-                                  "جالب العملاء SEO", 
+    app_choice = st.sidebar.radio("قائمة التحكم",
+                                 ["المساعد الذكي (الوعي الشامل)",
+                                  "برنامج المحاسب المعتمد",
+                                  "جالب العملاء SEO",
                                   "المحرك الصوتي المباشر"])
 
     if app_choice == "المساعد الذكي (الوعي الشامل)":

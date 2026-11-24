@@ -34,7 +34,7 @@ if not st.session_state['logged_in']:
         user = st.text_input("اسم المستخدم")
     with col2:
         pw = st.text_input("كلمة المرور", type='password')
-    
+
     if st.button("دخول للنظام"):
         if user == "ahmedelsefir" and pw == "123":
             st.session_state['logged_in'] = True
@@ -52,14 +52,14 @@ else:
     if choice == "🤖 المساعد الذكي":
         st.header("🤖 عقل مُنجز (Gemini V9)")
         st.info("المساعد جاهز للعمل بـ دقة متناهية.")
-        
+
         prompt = st.chat_input("تحدث مع مُنجز...")
         if prompt:
             with st.chat_message("user"):
                 st.markdown(prompt)
-                
+
             try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 response = model.generate_content(prompt)
                 with st.chat_message("assistant"):
                     st.markdown(response.text)

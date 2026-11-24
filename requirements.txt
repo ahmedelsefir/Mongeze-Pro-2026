@@ -6,3 +6,4 @@ honeybadger
 fastapi
 uvicorn[standard]
 google-genai
+python-telegram-bot>=21,<23

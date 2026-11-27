@@ -1,14 +1,41 @@
+"""Streamlit UI and FastAPI Gmail-trigger endpoint for Mongez AI."""
+
 from pathlib import Path
+from typing import Any
 
 import joblib
 import streamlit as st
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+from agent import MongezAgent
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "mongez_model.pkl"
+app = FastAPI(title="Mongez AI Gmail webhook", version="1.0.0")
+
+
+class GmailWebhook(BaseModel):
+    sender: str = Field(alias="from", max_length=500)
+    subject: str = Field(max_length=1000)
+    snippet: str = Field(default="", max_length=5000)
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+@app.post("/gmail-webhook")
+def gmail_webhook(email: GmailWebhook) -> dict[str, str]:
+    """Turn a Zapier notification into an Agent response; never send email."""
+    prompt = (
+        f"جالك إيميل جديد من {email.sender}: "
+        f"{email.subject} - {email.snippet}"
+    )
+    return {"reply": MongezAgent().think(prompt)}
 
 
 @st.cache_resource
-def load_brain():
+def load_brain() -> dict[str, Any]:
     """Load the local model, training it from data.csv the first time if needed."""
     if not MODEL_PATH.exists():
         from train import train_model
@@ -16,12 +43,11 @@ def load_brain():
     return joblib.load(MODEL_PATH)
 
 
-def answer_question(question, brain=None):
+def answer_question(question: str, brain: dict[str, Any] | None = None) -> str | None:
     """Return a dataset-grounded answer, or None when the question is out of scope."""
     text = (question or "").strip()
     if not text:
         return None
-
     brain = brain or load_brain()
     classifier = brain["classifier"]
     probabilities = classifier.predict_proba([text])[0]
@@ -29,7 +55,6 @@ def answer_question(question, brain=None):
     confidence = float(probabilities[best_index])
     if confidence < brain.get("min_confidence", 0.30):
         return None
-
     intent = classifier.classes_[best_index]
     return brain["answers"].get(intent)
 
@@ -38,7 +63,6 @@ if __name__ == "__main__":
     st.set_page_config(page_title="مُنجز - خدمات المهندسين", page_icon="🛠️")
     st.title("🛠️ مُنجز | مساعد خدمات المهندس أحمد مصطفى")
     st.caption("إجابات محلية من نموذج مُدرّب على data.csv — الخدمات في المهندسين فقط.")
-
     question = st.chat_input("اسأل عن تركيب الكاميرات أو صيانة DVR أو الشبكات أو الدش والشاشات")
     if question:
         try:

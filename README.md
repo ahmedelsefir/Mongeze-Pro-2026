@@ -1,86 +1,46 @@
 # Mongez AI
 
-A simple FastAPI backend to interact with the Gemini API.
+Mongez AI provides a Telegram assistant, a FastAPI API, and a Streamlit interface.
 
-## Setup and Installation
+## Setup
 
-1.  **Clone the repository (or create the files as provided).**
-
-2.  **Create and activate a virtual environment (recommended):**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Install the dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Set your Gemini API Key:**
-    The `GEMINI_API_KEY` must be available as an environment variable in the shell session where you run the application.
-
-    You can set it for your current session:
-    ```bash
-    export GEMINI_API_KEY="YOUR_API_KEY"
-    ```
-    Alternatively, for convenience during development, you can pass it directly when starting the `uvicorn` server:
-    ```bash
-    GEMINI_API_KEY="YOUR_API_KEY" uvicorn main:app --reload
-    ```
-    Replace `"YOUR_API_KEY"` with your actual key.
-
-## Running the Application
-
-Once the setup is complete, you can run the FastAPI server using `uvicorn`. Ensure your `GEMINI_API_KEY` is set as described above.
+Install dependencies:
 
 ```bash
-uvicorn main:app --reload
+pip install -r requirements.txt
 ```
 
-The server will start, and you can access it at `http://127.0.0.1:8000`.
+No `GEMINI_API_KEY` is required. Set `TELEGRAM_TOKEN` only when running the Telegram bot:
 
-## API Endpoints
+```bash
+export TELEGRAM_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
+python bot.py
+```
 
-### `GET /`
+## Gmail notifications
 
-A simple welcome message to confirm the server is running.
+Zapier is only a trigger. Mongez AI Agent is the one who reads, understands, and replies. Zapier does NOT reply.
 
--   **Response:**
-    ```json
-    {
-        "message": "Welcome to Mongez AI"
-    }
-    ```
+The `POST /gmail-webhook` endpoint accepts a JSON Gmail notification and returns an Agent-authored Telegram reply. For example:
 
-### `POST /chat`
+```json
+{
+  "from": "sender@example.com",
+  "subject": "Hello",
+  "snippet": "A short preview of the message"
+}
+```
 
-Sends a prompt to the Gemini API and returns the response.
+Run the FastAPI webhook with:
 
--   **Request Body:**
-    ```json
-    {
-        "prompt": "Your question or instruction here"
-    }
-    ```
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
 
--   **Example Usage (using `curl`):**
-    ```bash
-    curl -X POST "http://127.0.0.1:8000/chat" \
-    -H "Content-Type: application/json" \
-    -d '{"prompt": "What is the speed of light?"}'
-    ```
+Send a Gmail notification to `POST /gmail-webhook`. It returns `{ "reply": "..." }` for Zapier to relay to Telegram. The endpoint processes only the supplied notification fields; it does not connect to Gmail, delete messages, or send email.
 
--   **Success Response:**
-    ```json
-    {
-        "response": "The speed of light in a vacuum is a universal physical constant, exactly 299,792,458 metres per second."
-    }
-    ```
+In Telegram, Ahmed can use `/ايميل` to ask Mongez AI Agent for help reviewing a message. The Agent can prepare a draft suggestion, but Ahmed must approve it; no email is sent automatically.
 
--   **Error Response (if `GEMINI_API_KEY` is not set):**
-    ```json
-    {
-        "detail": "The Gemini API is not configured on the server. Please set the GEMINI_API_KEY environment variable."
-    }
-    ```
+## Other interfaces
+
+The Telegram bot keeps `TELEGRAM_TOKEN` as its only required runtime setting. The existing Streamlit interface can be started with `streamlit run app.py`.

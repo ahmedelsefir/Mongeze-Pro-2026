@@ -1,17 +1,16 @@
-"""Telegram bot and FastAPI backend for Mongez AI."""
+"""Telegram polling and FastAPI interface for Mongez AI."""
 
-import asyncio
 import os
-from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-from agent import MongezAgent, handle_email, handle_start, route_message
+from agent import MongezAgent, handle_email, handle_message, handle_start, is_owner
 
-app = FastAPI(title="Mongez AI", version="1.2.0")
+app = FastAPI(title="Mongez AI", version="2.0.0")
+
 
 class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=10_000)
@@ -24,11 +23,8 @@ def read_root() -> dict[str, str]:
 
 @app.post("/chat")
 def chat(request: ChatRequest) -> dict[str, str]:
-    """Return a basic local response without requiring an LLM API key."""
-    text = request.prompt.strip()
-    if "ايميل" in text or "إيميل" in text or "gmail" in text.casefold():
-        return {"response": MongezAgent().think(text)}
-    return {"response": "أنا منجز، مساعدك الشخصي. وضّح لي المطلوب وسأساعدك."}
+    """Public API; unauthenticated requests are kept in business mode."""
+    return {"response": MongezAgent().respond(request.prompt, is_owner=False)}
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -36,11 +32,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def reply_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.effective_message
-    if message is None or not message.text:
-        return
-    answer = await asyncio.to_thread(route_message, message.text, update)
-    await message.reply_text(answer)
+    await handle_message(update, context)
 
 
 def run_telegram_bot() -> None:

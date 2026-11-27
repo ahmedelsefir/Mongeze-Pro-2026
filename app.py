@@ -6,32 +6,31 @@ from typing import Any
 import joblib
 import streamlit as st
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent import MongezAgent
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "mongez_model.pkl"
-app = FastAPI(title="Mongez AI Gmail webhook", version="1.0.0")
+app = FastAPI(title="Mongez AI Gmail webhook", version="2.0.0")
 
 
 class GmailWebhook(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     sender: str = Field(alias="from", max_length=500)
     subject: str = Field(max_length=1000)
     snippet: str = Field(default="", max_length=5000)
 
-    class Config:
-        allow_population_by_field_name = True
-
 
 @app.post("/gmail-webhook")
 def gmail_webhook(email: GmailWebhook) -> dict[str, str]:
-    """Turn a Zapier notification into an Agent response; never send email."""
+    """Create a review-only response from supplied fields; never access/send email."""
     prompt = (
-        f"جالك إيميل جديد من {email.sender}: "
-        f"{email.subject} - {email.snippet}"
+        f"ساعدني في صياغة رد على بريد. From: {email.sender}. "
+        f"Subject: {email.subject}. Message: {email.snippet}"
     )
-    return {"reply": MongezAgent().think(prompt)}
+    return {"reply": MongezAgent().check_gmail() + "\n\n" + prompt}
 
 
 @st.cache_resource
@@ -39,6 +38,7 @@ def load_brain() -> dict[str, Any]:
     """Load the local model, training it from data.csv the first time if needed."""
     if not MODEL_PATH.exists():
         from train import train_model
+
         train_model()
     return joblib.load(MODEL_PATH)
 

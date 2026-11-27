@@ -21,47 +21,36 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 MODEL_NAME = "gemini-2.5-flash"
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "mongez_model.pkl"
-FALLBACK_REPLY = "أهلاً بيك، أنا مُنجز، سيب رسالتك والمهندس أحمد هيرد عليك"
+FALLBACK_REPLY = "أهلاً بيك، أنا منجز، مساعدك الشخصي المتكامل\n\nاكتب:\n/خدمات - خدمات رؤية الخير\n/متجر - الكاميرات والهاردات\n/استمارة - طلب معاينة\n/كود - أساعدك في البرمجة\n/نظملي - أنظم شغلك"
 _brain: dict[str, Any] | None = None
 _brain_loaded = False
 
 app = FastAPI(title="Mongez AI", version="1.1.0")
 
-
 class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=10_000)
 
-
 def get_gemini_key() -> str | None:
-    """Return a Gemini key from either supported environment variable."""
     return os.getenv("GEMINI_KEY") or os.getenv("GEMINI_API_KEY")
 
-
 def load_local_brain() -> dict[str, Any] | None:
-    """Load the local model, training it from data.csv if possible."""
     global _brain, _brain_loaded
     if _brain_loaded:
         return _brain
-
     _brain_loaded = True
     try:
         if not MODEL_PATH.exists():
             from train import train_model
-
             train_model()
         _brain = joblib.load(MODEL_PATH)
     except Exception:
-        # Missing model/data or an invalid model should not stop the bot.
         _brain = None
     return _brain
 
-
 def answer_locally(prompt: str) -> str | None:
-    """Answer using the locally trained intent model when it recognizes a prompt."""
     text = (prompt or "").strip()
     if not text:
         return None
-
     try:
         brain = load_local_brain()
         if not brain:
@@ -74,16 +63,37 @@ def answer_locally(prompt: str) -> str | None:
         intent = classifier.classes_[best_index]
         return brain["answers"].get(intent)
     except Exception:
-        # Fall back to Gemini or the fixed response if local inference fails.
         return None
 
+def check_keywords(prompt: str) -> str | None:
+    text = (prompt or "").strip()
+    if "نظملي" in text or "نظم" in text or "رتب" in text:
+        return "تمام يا أحمد، هساعدك تنظم شغلك. ابعتلي اللي عايز تنظمه، عملاء المهندسين ولا أرض اللواء ولا شغل بكره؟ وهسجلهولك."
+    if "السلام" in text or "سلام عليكم" in text:
+        return "وعليكم السلام يا أحمد، أنا منجز، مساعدك الشخصي المتكامل. اكتب /نظملي عشان أنظم شغلك، أو /خدمات للخدمات."
+    if "كاميرات" in text or "تركيب" in text:
+        return "تمام، عايز تركب كاميرات في المهندسين؟ المعاينة مجانية للتركيب. ابعتلي اسمك وعنوانك ورقمك، وهعملك استمارة."
+    if "بكام" in text or "سعر" in text or "المعاينة بكام" in text:
+        return "المعاينة مجانية للتركيب فقط، والصيانة المعاينة مدفوعة. السعر النهائي بعد المعاينة."
+    if "بتشتغل فين" in text or text == "فين":
+        return "أنا بشتغل في المهندسين فقط، رؤية الخير."
+    if "هيكفيجن" in text:
+        return "أيوه عندنا كاميرات هيكفيجن، والهاردات، والدش، والشاشات. السعر النهائي بعد المعاينة."
+    if "DVR" in text or "مشكلة" in text:
+        return "تمام، قولي ايه المشكلة في DVR بالظبط؟ والجهاز بيشتغل ولا لأ؟ الصيانة المعاينة مدفوعة."
+    if "كود" in text or "code" in text.lower():
+        return "تمام، أنا جاهز أساعدك في البرمجة خطوة خطوة، ابعتلي الكود اللي واقف معاك."
+    if "مهمة" in text or "فكرني" in text:
+        return "تمام، ابعتلي المهمة اللي عايز أضيفها، وهسجلها ليك. اكتب: المهمة + اللي عايزه."
+    return None
 
 def generate_answer(prompt: str) -> str:
-    """Prefer the local model, then Gemini, then a safe fixed response."""
+    keyword_answer = check_keywords(prompt)
+    if keyword_answer:
+        return keyword_answer
     local_answer = answer_locally(prompt)
     if local_answer:
         return local_answer
-
     api_key = get_gemini_key()
     if api_key:
         try:
@@ -92,51 +102,36 @@ def generate_answer(prompt: str) -> str:
             if result.text:
                 return result.text
         except Exception:
-            # Gemini is optional; the bot can still answer with the fixed message.
             pass
-
     return FALLBACK_REPLY
-
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    """Return a simple health/welcome response."""
     return {"message": "Welcome to Mongez AI"}
-
 
 @app.post("/chat")
 def chat(request: ChatRequest) -> dict[str, str]:
-    """Generate a response using the local model and optional Gemini fallback."""
     return {"response": generate_answer(request.prompt)}
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Welcome the user and explain how to chat with the bot."""
     if update.effective_message:
-        await update.effective_message.reply_text(FALLBACK_REPLY)
-
+        await update.effective_message.reply_text("أهلاً بيك، أنا منجز، مساعدك الشخصي المتكامل\n\nأنا أحمد، مساعدك في الشغل والبرمجة والحياة\nبشتغل في المهندسين فقط - رؤية الخير\nتركيب كاميرات - صيانة DVR - اكسس كنترول - شبكات - دش وشاشات\nالمعاينة مجانية للتركيب فقط، الصيانة المعاينة مدفوعة\nالسعر النهائي بعد المعاينة\nواتساب: 01111325395\n\nاكتب /خدمات للخدمات، و /نظملي عشان أنظم شغلك")
 
 async def reply_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message to the local model, with optional Gemini fallback."""
     message = update.effective_message
     if message is None or not message.text:
         return
-
     answer = await asyncio.to_thread(generate_answer, message.text)
     await message.reply_text(answer)
 
-
 def run_telegram_bot() -> None:
-    """Start the Telegram bot using its token from the environment."""
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         raise RuntimeError("TELEGRAM_TOKEN is not configured")
-
     application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_to_message))
-    application.run_polling()
-
+    application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     run_telegram_bot()

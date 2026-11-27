@@ -1,0 +1,15 @@
+# Exclude local environments, caches, data stores and generated model files.
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+*.db
+memory.json
+orders.txt
+tasks.txt
+mongez_model.pkl
+mongez_brain.json
+.env
+.env.*
+!.env.example

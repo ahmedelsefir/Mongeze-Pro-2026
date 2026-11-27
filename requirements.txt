@@ -9,3 +9,4 @@ fastapi
 uvicorn[standard]
 google-genai
 python-telegram-bot>=21,<23
+starlette>=1.0.1 # not directly required, pinned by Snyk to avoid a vulnerability

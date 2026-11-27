@@ -1,76 +1,88 @@
-"""Streamlit UI and FastAPI Gmail-trigger endpoint for Mongez AI."""
+"""Telegram-only entry point for the Mongez personal AI agent."""
 
+import json
+import os
 from pathlib import Path
 from typing import Any
 
-import joblib
-import streamlit as st
-from fastapi import FastAPI
-from pydantic import BaseModel, ConfigDict, Field
-
-from agent import MongezAgent
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "mongez_model.pkl"
-app = FastAPI(title="Mongez AI Gmail webhook", version="2.0.0")
+BRAIN_PATH = BASE_DIR / "mongez_brain.json"
+UNKNOWN_RESPONSE = "تمام يا أحمد، سجلتها، هرد عليك"
 
 
-class GmailWebhook(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    sender: str = Field(alias="from", max_length=500)
-    subject: str = Field(max_length=1000)
-    snippet: str = Field(default="", max_length=5000)
-
-
-@app.post("/gmail-webhook")
-def gmail_webhook(email: GmailWebhook) -> dict[str, str]:
-    """Create a review-only response from supplied fields; never access/send email."""
-    prompt = (
-        f"ساعدني في صياغة رد على بريد. From: {email.sender}. "
-        f"Subject: {email.subject}. Message: {email.snippet}"
-    )
-    return {"reply": MongezAgent().check_gmail() + "\n\n" + prompt}
-
-
-@st.cache_resource
 def load_brain() -> dict[str, Any]:
-    """Load the local model, training it from data.csv the first time if needed."""
-    if not MODEL_PATH.exists():
-        from train import train_model
+    """Load Mongez answers from the JSON brain."""
+    if not BRAIN_PATH.exists():
+        return {}
+    try:
+        with BRAIN_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
 
-        train_model()
-    return joblib.load(MODEL_PATH)
+
+def save_unknown_question(question: str) -> None:
+    """Save unanswered questions in mongez_brain.json."""
+    brain = load_brain()
+    unanswered = brain.setdefault("unanswered", [])
+    if not isinstance(unanswered, list):
+        unanswered = []
+        brain["unanswered"] = unanswered
+    unanswered.append({"question": question.strip()})
+    with BRAIN_PATH.open("w", encoding="utf-8") as file:
+        json.dump(brain, file, ensure_ascii=False, indent=2)
 
 
-def answer_question(question: str, brain: dict[str, Any] | None = None) -> str | None:
-    """Return a dataset-grounded answer, or None when the question is out of scope."""
+def answer_question(question: str) -> str:
+    """Return a brain answer in Egyptian Arabic or record the unknown question."""
     text = (question or "").strip()
     if not text:
-        return None
-    brain = brain or load_brain()
-    classifier = brain["classifier"]
-    probabilities = classifier.predict_proba([text])[0]
-    best_index = probabilities.argmax()
-    confidence = float(probabilities[best_index])
-    if confidence < brain.get("min_confidence", 0.30):
-        return None
-    intent = classifier.classes_[best_index]
-    return brain["answers"].get(intent)
+        return "أرسل رسالتك، يا أحمد."
+
+    brain = load_brain()
+    answers = brain.get("answers", {})
+    if isinstance(answers, dict):
+        direct = answers.get(text)
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+
+        normalized = text.casefold()
+        for key, value in answers.items():
+            if isinstance(key, str) and isinstance(value, str):
+                if normalized == key.strip().casefold():
+                    return value.strip()
+
+    save_unknown_question(text)
+    return UNKNOWN_RESPONSE
+
+
+async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = getattr(update, "effective_message", None)
+    if message:
+        await message.reply_text("أهلاً يا أحمد، أنا منجز. ابعتلي رسالتك.")
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = getattr(update, "effective_message", None)
+    text = getattr(message, "text", None)
+    if message and text:
+        await message.reply_text(answer_question(text))
+
+
+def main() -> None:
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        raise RuntimeError("TELEGRAM_TOKEN is not configured")
+
+    application = Application.builder().token(token).build()
+    application.add_handler(CommandHandler("start", handle_start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="مُنجز - خدمات المهندسين", page_icon="🛠️")
-    st.title("🛠️ مُنجز | مساعد خدمات المهندس أحمد مصطفى")
-    st.caption("إجابات محلية من نموذج مُدرّب على data.csv — الخدمات في المهندسين فقط.")
-    question = st.chat_input("اسأل عن تركيب الكاميرات أو صيانة DVR أو الشبكات أو الدش والشاشات")
-    if question:
-        try:
-            reply = answer_question(question)
-            if reply:
-                st.chat_message("user").write(question)
-                st.chat_message("assistant").write(reply)
-            else:
-                st.info("السؤال خارج نطاق البيانات المتاحة. اسأل عن الخدمات المذكورة أو عن منطقة المهندسين.")
-        except Exception as error:
-            st.error(f"تعذر تحميل النموذج المحلي: {error}")
+    main()

@@ -1,5 +1,4 @@
 import { SYSTEM_PROMPT } from "./prompts/system";
-void SYSTEM_PROMPT;
 import { tools, createOrder } from "./tools";
 import {
   ensureSession,
@@ -28,6 +27,9 @@ export interface RespondOptions {
 }
 
 export class MongezAgent {
+  /** Expose the behavior contract for integrations that supply their own model. */
+  static readonly systemPrompt = SYSTEM_PROMPT;
+
   private logs: AgentStepLog[] = [];
 
   getStepLogs(): AgentStepLog[] {
@@ -64,6 +66,7 @@ export class MongezAgent {
       ...session.state,
       lastIntent: this.logs.find((l) => l.step === "reason")?.detail ?? "unknown",
       lastReplyAt: new Date().toISOString(),
+      lastStatus: "completed",
     });
     this.log("persist", "message history and session state updated");
     return reply;

@@ -1,6 +1,7 @@
 import type {
   AgentMessage,
   AgentSession,
+  AgentTask,
   MemoryFact,
   ServiceOrder,
 } from "../../types/agent";
@@ -117,6 +118,22 @@ export async function listFacts(query = ""): Promise<MemoryFact[]> {
     content: row.content,
     createdAt: row.created_at,
   }));
+}
+
+export async function saveTask(title: string): Promise<AgentTask> {
+  const db = getDb();
+  const { data, error } = await db
+    .from("agent_tasks")
+    .insert({ title, status: "open" })
+    .select("id, title, status, created_at")
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    title: data.title,
+    status: data.status,
+    createdAt: data.created_at,
+  };
 }
 
 export async function saveOrder(

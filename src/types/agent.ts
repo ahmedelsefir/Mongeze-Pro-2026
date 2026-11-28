@@ -19,11 +19,16 @@ export interface MemoryFact {
   createdAt: string;
 }
 
+export type AgentTaskStatus = "open" | "in_progress" | "completed" | "cancelled";
+export type AgentTaskResult = string | number | boolean | null | Record<string, unknown> | unknown[];
+
 export interface AgentTask {
   id: string;
   title: string;
-  status: string;
+  status: AgentTaskStatus;
+  result: AgentTaskResult | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ServiceOrder {

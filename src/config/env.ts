@@ -1,10 +1,16 @@
 import "dotenv/config";
 
-function required(name: string, value: string | undefined): string {
-  if (!value || !value.trim()) {
-    throw new Error(`Missing required environment variable: ${name}`);
+function requiredWithFallback(
+  preferredName: string,
+  fallbackName: string,
+): string {
+  const value = process.env[preferredName]?.trim() || process.env[fallbackName]?.trim();
+  if (!value) {
+    throw new Error(
+      `Missing required environment variable: set ${preferredName} (preferred) or ${fallbackName}.`,
+    );
   }
-  return value.trim();
+  return value;
 }
 
 function optional(name: string, fallback = ""): string {
@@ -13,8 +19,11 @@ function optional(name: string, fallback = ""): string {
 }
 
 export const env = {
-  supabaseUrl: required("SUPABASE_URL", process.env.SUPABASE_URL),
-  supabaseAnonKey: required("SUPABASE_ANON_KEY", process.env.SUPABASE_ANON_KEY),
+  supabaseUrl: requiredWithFallback("EXTERNAL_SUPABASE_URL", "SUPABASE_URL"),
+  supabaseAnonKey: requiredWithFallback(
+    "EXTERNAL_SUPABASE_ANON_KEY",
+    "SUPABASE_ANON_KEY",
+  ),
   telegramToken: optional("TELEGRAM_TOKEN"),
   ownerTelegramIds: optional("OWNER_TELEGRAM_IDS")
     .split(",")

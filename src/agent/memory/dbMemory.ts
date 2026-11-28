@@ -9,6 +9,9 @@ import type {
 } from "../../types/agent";
 import { getDb } from "../../db/client";
 
+const SUPABASE_CONFIGURATION_HINT =
+  "Check EXTERNAL_SUPABASE_URL / EXTERNAL_SUPABASE_ANON_KEY (preferred) or SUPABASE_URL / SUPABASE_ANON_KEY, and verify database permissions.";
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error !== null && "message" in error) {
@@ -21,17 +24,19 @@ async function withDbError<T>(operation: string, action: () => Promise<T>): Prom
   try {
     return await action();
   } catch (error) {
-    throw new Error(`[agent memory] ${operation} failed: ${errorMessage(error)}`, {
-      cause: error,
-    });
+    throw new Error(
+      `[agent memory] ${operation} failed: ${errorMessage(error)}. ${SUPABASE_CONFIGURATION_HINT}`,
+      { cause: error },
+    );
   }
 }
 
 function checkDbError(operation: string, error: unknown): void {
   if (error) {
-    throw new Error(`[agent memory] ${operation} failed: ${errorMessage(error)}`, {
-      cause: error,
-    });
+    throw new Error(
+      `[agent memory] ${operation} failed: ${errorMessage(error)}. ${SUPABASE_CONFIGURATION_HINT}`,
+      { cause: error },
+    );
   }
 }
 
